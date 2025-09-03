@@ -1,11 +1,6 @@
 import {ChangeEvent, useEffect, useMemo, useState} from "react";
 import {DataGrid, GridColDef} from "@mui/x-data-grid";
-
-interface EmployeeDataProps {
-    employeeId1?: number,
-    employeeId2?: number,
-    daysWorkedTogether?: number,
-}
+import styled from "styled-components";
 
 interface CSVParserProps {
     employeeId: number;
@@ -21,6 +16,12 @@ type EmployeeRows = {
     projectId: number;
     daysWorked: number;
 };
+
+const DataGridWrapper = styled.div`
+    padding: 20px;
+    background-color: rgb(173, 216, 230);
+`;
+
 const CSVParser = () => {
     const employeeColumns: GridColDef[] = [
         {field: "emp1", headerName: "Employee ID #1", flex: 1},
@@ -30,7 +31,6 @@ const CSVParser = () => {
     ];
     const [employeeRows, setEmployeeRows] = useState<EmployeeRows[]>([]);
     const [csvData, setCsvData] = useState<CSVParserProps[]>([]);
-    const [longestPairEmployeeData, setLongestPairEmployeeData] = useState<EmployeeDataProps>({});
 
     const handleFileUpload = (event: ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -53,7 +53,6 @@ const CSVParser = () => {
 
         // Skip header row if it exists
         const startIndex = lines[0].toLowerCase().includes('EmpID') ? 1 : 0;
-        let idCounter = 1;
         for (let i = startIndex; i < lines.length; i++) {
             const values = lines[i].split(',').map(v => v.trim());
             if (values.length === 4) {
@@ -84,50 +83,51 @@ const CSVParser = () => {
 
     useEffect(() => {
         if (csvData.length > 0) {
+
             // Calculate max days worked together
-            let employeeID1 = 0;
-            let employeeID2 = 0;
-            let daysWorkedTogether = 0;
+            let longestPairFirstEmployee = 0;
+            let longestPairSecondEmployee = 0;
+            let longestPairDaysWorkedTogether = 0;
             const dataGridRows: EmployeeRows[] = [];
             let idCounter = 1;
             Object.entries(groupEmployeesByProjects).forEach(([projectId, employees]) => {
                 for (let i = 0; i < employees.length; i++) {
                     for (let j = i + 1; j < employees.length; j++) {
                         if (employees[i].employeeId === employees[j].employeeId) continue;
-                        const overlapStartDate = Math.max(employees[i].startDate.getTime(), employees[j].startDate.getTime());
-                        const overlapEndDate = Math.min(employees[i].endDate.getTime(), employees[j].endDate.getTime());
-                        if (overlapStartDate <= overlapEndDate) {
-                            const overlapDuration = overlapEndDate - overlapStartDate;
-                            const daysDifference = Math.ceil(overlapDuration / (1000 * 60 * 60 * 24));
-                            if (daysDifference > daysWorkedTogether) {
-                                daysWorkedTogether = daysDifference;
-                                employeeID1 = employees[i].employeeId;
-                                employeeID2 = employees[j].employeeId;
+
+                        const overlapStartDateInMiliseconds = Math.max(employees[i].startDate.getTime(), employees[j].startDate.getTime());
+                        const overlapEndDateInMiliseconds = Math.min(employees[i].endDate.getTime(), employees[j].endDate.getTime());
+                        if (overlapStartDateInMiliseconds <= overlapEndDateInMiliseconds) {
+                            const overlapDurationInMiliseconds = overlapEndDateInMiliseconds - overlapStartDateInMiliseconds;
+                            const workingDays = Math.ceil(overlapDurationInMiliseconds / (1000 * 60 * 60 * 24));
+                            if (workingDays > longestPairDaysWorkedTogether) {
+                                longestPairDaysWorkedTogether = workingDays;
+                                longestPairFirstEmployee = employees[i].employeeId;
+                                longestPairSecondEmployee = employees[j].employeeId;
                             }
-                            // Add row to data grid if the two employees are in the same project
+
+                            // Add row to the data grid if the two employees are in the same project
                             dataGridRows.push({
                                 id: idCounter++,
                                 emp1: employees[i].employeeId,
                                 emp2: employees[j].employeeId,
                                 projectId: +projectId,
-                                daysWorked: daysDifference
+                                daysWorked: workingDays
                             });
                         }
                     }
                 }
             });
-            setEmployeeRows(dataGridRows);
-
-            setLongestPairEmployeeData({
-                employeeId1: employeeID1,
-                employeeId2: employeeID2,
-                daysWorkedTogether: daysWorkedTogether,
-            })
+            const dataGridRowsFiltered = dataGridRows.filter(
+                (employeePair) =>
+                    (employeePair.emp1 === longestPairFirstEmployee && employeePair.emp2 === longestPairSecondEmployee) || (employeePair.emp1 === longestPairSecondEmployee && employeePair.emp2 === longestPairFirstEmployee)
+            );
+            setEmployeeRows(dataGridRowsFiltered);
         }
     }, [csvData, groupEmployeesByProjects])
 
     return (
-        <div>
+        <DataGridWrapper>
             <h1>Pair of employees who have worked together</h1>
             <h2>Upload a CSV file with employee data</h2>
             <input type="file"
@@ -145,10 +145,13 @@ const CSVParser = () => {
                       columns={employeeColumns}
                       pageSizeOptions={[5, 10, 20, 30, 50, 100]}
                       initialState={{
-                          pagination: {paginationModel: {pageSize: 10}}
+                          pagination: {paginationModel: {pageSize: 10}},
+                          sorting: {
+                              sortModel: [{field: 'daysWorked', sort: 'desc'}],
+                          },
                       }}
             />
-        </div>
+        </DataGridWrapper>
     )
 }
 
