@@ -1,6 +1,7 @@
 import {ChangeEvent, useEffect, useMemo, useState} from "react";
 import {DataGrid, GridColDef} from "@mui/x-data-grid";
 import styled from "styled-components";
+import * as chrono from "chrono-node";
 
 interface CSVParserProps {
     employeeId: number;
@@ -47,6 +48,27 @@ const CSVParser = () => {
         reader.readAsText(file);
     };
 
+    const parseDate = (dateString: string): Date => {
+        // Handle null/empty values
+        if (!dateString || dateString.toLowerCase() === 'null' || dateString.trim() === '') {
+            return new Date();
+        }
+
+        // Clean the string
+        const cleanDateString = dateString.replace(/['"]/g, '').trim();
+
+        // Use chrono to parse the date
+        const parsedDate = chrono.parseDate(cleanDateString);
+
+        if (parsedDate && !isNaN(parsedDate.getTime())) {
+            return parsedDate;
+        }
+
+        // Fallback to current date if parsing fails
+        console.warn(`Could not parse date: "${dateString}". Using current date as fallback.`);
+        return new Date();
+    };
+
     const parseCSV = (csvText: string): CSVParserProps[] => {
         const lines = csvText.split('\n').filter(line => line.trim());
         const data: CSVParserProps[] = [];
@@ -59,8 +81,9 @@ const CSVParser = () => {
                 data.push({
                     employeeId: parseInt(values[0]),
                     projectId: parseInt(values[1]),
-                    startDate: new Date(values[2]),
-                    endDate: values[3].toLowerCase() !== 'null' ? new Date(values[3]) : new Date()
+                    startDate: parseDate(values[2]),
+                    endDate: parseDate(values[3])
+
                 });
             }
         }
