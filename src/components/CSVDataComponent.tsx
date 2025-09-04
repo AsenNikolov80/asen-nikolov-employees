@@ -1,4 +1,4 @@
-import {ChangeEvent, useEffect, useMemo, useState} from "react";
+import {ChangeEvent, useCallback, useEffect, useMemo, useState} from "react";
 import {DataGrid, GridColDef} from "@mui/x-data-grid";
 import styled from "styled-components";
 import {parseDateFromString} from "../helpers/DatetimeHelper";
@@ -33,7 +33,7 @@ const CSVDataComponent = () => {
     const [employeeRows, setEmployeeRows] = useState<EmployeeRows[]>([]);
     const [csvData, setCsvData] = useState<CSVParserProps[]>([]);
 
-    const handleFileUpload = (event: ChangeEvent<HTMLInputElement>) => {
+    const handleFileUpload = useCallback((event: ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (!file) return;
 
@@ -41,12 +41,20 @@ const CSVDataComponent = () => {
         reader.onload = (e) => {
             const csvText = e.target?.result as string;
             if (csvText) {
-                const parsedData = parseCSV(csvText);
-                setCsvData(parsedData);
+                try {
+                    const parsedData: CSVParserProps[] = parseCSV(csvText);
+                    setCsvData(parsedData);
+                } catch (err) {
+                    console.error("Error parsing CSV:", err);
+                }
             }
+            reader.onload = null; // cleanup
         };
         reader.readAsText(file);
-    };
+
+        // Reset input in order to use the same file again.
+        event.target.value = "";
+    }, [setCsvData])
 
     const parseCSV = (csvText: string): CSVParserProps[] => {
         const lines = csvText.split('\n').filter(line => line.trim());
@@ -81,7 +89,18 @@ const CSVDataComponent = () => {
             return acc;
 
         }, {} as Record<number, CSVParserProps[]>);
-    }, [csvData])
+    }, [csvData]);
+
+    const calculateOverlapDays = (startDate1: Date, endDate1: Date, startDate2: Date, endDate2: Date): number => {
+        const overlapStartDateInMiliseconds = Math.max(startDate1.getTime(), startDate2.getTime());
+        const overlapEndDateInMiliseconds = Math.min(endDate1.getTime(), endDate2.getTime());
+
+        if (overlapStartDateInMiliseconds <= overlapEndDateInMiliseconds) {
+            return Math.ceil((overlapEndDateInMiliseconds - overlapStartDateInMiliseconds) / (1000 * 60 * 60 * 24));
+        }
+        return 0;
+    };
+
 
     useEffect(() => {
         if (csvData.length > 0) {
@@ -97,14 +116,11 @@ const CSVDataComponent = () => {
                     for (let j = i + 1; j < employees.length; j++) {
                         if (employees[i].employeeId === employees[j].employeeId) continue;
 
-                        const overlapStartDateInMiliseconds = Math.max(employees[i].startDate.getTime(), employees[j].startDate.getTime());
-                        const overlapEndDateInMiliseconds = Math.min(employees[i].endDate.getTime(), employees[j].endDate.getTime());
-                        if (overlapStartDateInMiliseconds <= overlapEndDateInMiliseconds) {
+                        const workingDaysTogether = calculateOverlapDays(employees[i].startDate, employees[i].endDate, employees[j].startDate, employees[j].endDate);
+                        if (workingDaysTogether > 0) {
                             // The two employees are in the same project.
-                            const overlapDurationInMiliseconds = overlapEndDateInMiliseconds - overlapStartDateInMiliseconds;
-                            const workingDays = Math.ceil(overlapDurationInMiliseconds / (1000 * 60 * 60 * 24));
-                            if (workingDays > longestPairDaysWorkedTogether) {
-                                longestPairDaysWorkedTogether = workingDays;
+                            if (workingDaysTogether > longestPairDaysWorkedTogether) {
+                                longestPairDaysWorkedTogether = workingDaysTogether;
                                 longestPairFirstEmployee = employees[i].employeeId;
                                 longestPairSecondEmployee = employees[j].employeeId;
                             }
@@ -115,7 +131,7 @@ const CSVDataComponent = () => {
                                 emp1: employees[i].employeeId,
                                 emp2: employees[j].employeeId,
                                 projectId: +projectId,
-                                daysWorked: workingDays
+                                daysWorked: workingDaysTogether
                             });
                         }
                     }
