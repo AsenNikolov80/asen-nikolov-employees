@@ -1,7 +1,7 @@
 import {ChangeEvent, useEffect, useMemo, useState} from "react";
 import {DataGrid, GridColDef} from "@mui/x-data-grid";
 import styled from "styled-components";
-import * as chrono from "chrono-node";
+import {parseDateFromString} from "../helpers/DatetimeHelper";
 
 interface CSVParserProps {
     employeeId: number;
@@ -54,11 +54,8 @@ const CSVParser = () => {
             return new Date();
         }
 
-        // Clean the string
         const cleanDateString = dateString.replace(/['"]/g, '').trim();
-
-        // Use chrono to parse the date
-        const parsedDate = chrono.parseDate(cleanDateString);
+        const parsedDate = parseDateFromString(cleanDateString);
 
         if (parsedDate && !isNaN(parsedDate.getTime())) {
             return parsedDate;
