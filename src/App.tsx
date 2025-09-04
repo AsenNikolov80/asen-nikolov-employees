@@ -1,10 +1,10 @@
 import './App.css';
-import CSVParser from "./components/CSVParser";
+import CSVDataComponent from "./components/CSVDataComponent";
 
 function App() {
     return (
         <div className="App">
-            <CSVParser/>
+            <CSVDataComponent/>
         </div>
     );
 }

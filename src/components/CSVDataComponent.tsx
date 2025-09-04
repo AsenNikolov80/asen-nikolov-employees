@@ -23,7 +23,7 @@ const DataGridWrapper = styled.div`
     background-color: rgb(173, 216, 230);
 `;
 
-const CSVParser = () => {
+const CSVDataComponent = () => {
     const employeeColumns: GridColDef[] = [
         {field: "emp1", headerName: "Employee ID #1", flex: 1},
         {field: "emp2", headerName: "Employee ID #2", flex: 1},
@@ -48,24 +48,6 @@ const CSVParser = () => {
         reader.readAsText(file);
     };
 
-    const parseDate = (dateString: string): Date => {
-        // Handle null/empty values
-        if (!dateString || dateString.toLowerCase() === 'null' || dateString.trim() === '') {
-            return new Date();
-        }
-
-        const cleanDateString = dateString.replace(/['"]/g, '').trim();
-        const parsedDate = parseDateFromString(cleanDateString);
-
-        if (parsedDate && !isNaN(parsedDate.getTime())) {
-            return parsedDate;
-        }
-
-        // Fallback to current date if parsing fails
-        console.warn(`Could not parse date: "${dateString}". Using current date as fallback.`);
-        return new Date();
-    };
-
     const parseCSV = (csvText: string): CSVParserProps[] => {
         const lines = csvText.split('\n').filter(line => line.trim());
         const data: CSVParserProps[] = [];
@@ -78,8 +60,8 @@ const CSVParser = () => {
                 data.push({
                     employeeId: parseInt(values[0]),
                     projectId: parseInt(values[1]),
-                    startDate: parseDate(values[2]),
-                    endDate: parseDate(values[3])
+                    startDate: parseDateFromString(values[2]),
+                    endDate: parseDateFromString(values[3])
 
                 });
             }
@@ -118,6 +100,7 @@ const CSVParser = () => {
                         const overlapStartDateInMiliseconds = Math.max(employees[i].startDate.getTime(), employees[j].startDate.getTime());
                         const overlapEndDateInMiliseconds = Math.min(employees[i].endDate.getTime(), employees[j].endDate.getTime());
                         if (overlapStartDateInMiliseconds <= overlapEndDateInMiliseconds) {
+                            // The two employees are in the same project.
                             const overlapDurationInMiliseconds = overlapEndDateInMiliseconds - overlapStartDateInMiliseconds;
                             const workingDays = Math.ceil(overlapDurationInMiliseconds / (1000 * 60 * 60 * 24));
                             if (workingDays > longestPairDaysWorkedTogether) {
@@ -126,7 +109,7 @@ const CSVParser = () => {
                                 longestPairSecondEmployee = employees[j].employeeId;
                             }
 
-                            // Add row to the data grid if the two employees are in the same project
+                            // Add row to the data grid.
                             dataGridRows.push({
                                 id: idCounter++,
                                 emp1: employees[i].employeeId,
@@ -147,7 +130,7 @@ const CSVParser = () => {
     }, [csvData, groupEmployeesByProjects])
 
     return (
-        <DataGridWrapper>
+        <DataGridWrapper id="data-grid-wrapper">
             <h1>Pair of employees who have worked together</h1>
             <h2>Upload a CSV file with employee data</h2>
             <input type="file"
@@ -176,4 +159,4 @@ const CSVParser = () => {
 }
 
 
-export default CSVParser;
+export default CSVDataComponent;
